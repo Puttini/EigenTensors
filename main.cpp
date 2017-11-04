@@ -56,6 +56,8 @@ struct TensorMap
         static_assert( sizeof...(dimensions) == dim, "Invalid dimensions" );
         stride[dim-1] = 1;
         _init<0>( dimensions... );
+
+		assert( shape[0]*stride[0] == mat.rows() * mat.cols() );
     }
 
     template< int s, typename ... Dimensions >
@@ -123,21 +125,47 @@ struct TensorMapExp<Scalar,1> : public Eigen::Map< Vector<Scalar> >
     {
         assert( stride[0] == 1 );
     }
+
+	EigenEquivalent& operator()( void )
+	{ return *this; }
+
+	typename std::result_of< EigenEquivalent(int) >::type
+	operator()( int i )
+	{ return this->EigenEquivalent::operator()(i); }
 };
 
 int main()
 {
-    MatrixR<float,3*3,4> m;
+    MatrixR<float,3*4,4> m;
     m.setZero();
-    TensorMap<float,3> t( m, 3, 3, 4 );
+    TensorMap<float,3> t( m, 3, 4, 4 );
 
     t(0,0,0) = 1;
     t(0,0)(1) = 2;
     t(0)(0,2) = 3;
     t(0)(0)(3) = 4;
 
-    t(0,1) = Vector<float,2>( 5, 6 );
-    t(0)(2) = Vector<float,2>( 5, 6 );
+    t(0,1) = Vector<float,4>( 5, 6, 7, 8 );
+	t(0)(2) = Vector<float,4>( 9, 10, 11, 12 );
+	t(0)(3)() = Vector<float,4>( 13, 14, 15, 16 );
+
+	t(1)()(0) = Vector<float,4>( 17, 21, 25, 29 );
+	t(1)()(2) = t(1)()(0) + 2; // Broadcasting
+
+	assert( t.contract<0,1>().rows() == 3*4 );
+
+	t(2) = t(1) + MatrixR<float>::Ones( t(1)().shape[0], t(1).cols() );
+
+	// Check the result
+	const ulong imax = 16;
+	bool correct = true;
+	for ( ulong i = 0 ; correct && i < imax ; ++i )
+		correct = m.data()[i] == i+1;
+	if ( correct )
+		std::cout << "Tensor works!" << std::endl;
+	else
+		std::cout << "Something went wrong..." << std::endl;
+	std::cout << std::endl;
 
     return 0;
 }
