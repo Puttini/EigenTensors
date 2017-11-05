@@ -134,27 +134,163 @@ struct TensorMapExp<Scalar,1> : public Eigen::Map< Vector<Scalar> >
 	{ return this->EigenEquivalent::operator()(i); }
 };
 
+// -----------------------------------------------------------------------------------
+
+template< typename Scalar_, int dim_ >
+struct TensorExp;
+
+template< typename Derived >
+struct TensorExp_Slice;
+
+template< typename Derived, typename ... Args >
+struct AccessorResult;
+
+template< typename Derived, typename ... OtherArgs >
+struct AccessorResult< Derived, int, OtherArgs... >
+{
+	typedef typename AccessorResult< typename AccessorResult< Derived, int >::type, OtherArgs... >::type type;
+};
+
+template< typename Derived >
+struct AccessorResult< Derived, int >
+{
+	typedef typename
+		std::conditional< Derived::dim == 1,
+			typename Derived::Scalar&,
+			TensorExp_Slice< Derived > >::type
+		type;
+};
+
+template< typename Derived >
+struct TensorBase
+{
+	template< typename ... OtherIndices >
+	typename AccessorResult<Derived,int,OtherIndices...>::type
+	operator()( int i, OtherIndices ... idx );
+
+	TensorExp_Slice<Derived>
+	operator()( int i );
+};
+
+template< typename Scalar_, int dim_ >
+struct Tensor : public TensorBase< Tensor< Scalar_, dim_ > >
+{
+	typedef Scalar_ Scalar;
+	constexpr static int dim = dim_;
+
+	Scalar* data;
+	int stride[dim];
+	int shape[dim];
+
+    template< typename ... Dimensions >
+    Tensor( _MatrixR<Scalar> mat, Dimensions ... dimensions )
+    {
+        data = mat.data();
+        static_assert( sizeof...(dimensions) == dim, "Invalid dimensions" );
+        stride[dim-1] = 1;
+        _init<0>( dimensions... );
+
+		assert( shape[0]*stride[0] == mat.rows() * mat.cols() );
+    }
+
+    template< int s, typename ... Dimensions >
+    void _init( int d, Dimensions ... dimensions )
+    {
+        shape[s] = d;
+        _init<s+1>( dimensions... );
+        stride[s] = stride[s+1]*shape[s+1];
+    }
+
+    template< int s >
+    void _init( int d )
+    { shape[s] = d; }
+};
+
+template< typename Scalar_ >
+struct TensorBase< Tensor<Scalar_, 1> > : public Eigen::Map< Vector<Scalar_> >
+{
+	typedef Scalar_ Scalar;
+	constexpr static int dim = 1;
+	typedef Eigen::Map< Vector<Scalar_> > EigenDerived;
+
+	using EigenDerived::operator();
+	using EigenDerived::operator=;
+};
+
+template< typename Scalar_, int dim_ >
+struct TensorExp : public TensorBase< Tensor<Scalar_, dim_> >
+{
+	using TensorBase< Tensor<Scalar_,dim_> >::operator=;
+
+	typedef Scalar_ Scalar;
+	constexpr static int dim = dim_;
+
+	Scalar* data;
+	int* stride;
+	int* shape;
+
+	TensorExp( Scalar* data, int* stride, int* shape )
+	 : data(data), stride(stride), shape(shape)
+	{}
+};
+
+template< typename Derived >
+struct TensorExp_Slice : public TensorExp< typename Derived::Scalar, Derived::dim-1 >
+{
+	typedef typename Derived::Scalar Scalar;
+	constexpr static int dim = Derived::dim-1;
+
+	using TensorExp<Scalar,dim>::operator=;
+
+	TensorExp_Slice( Derived& operand, int i )
+	 : TensorExp<Scalar,dim>( operand.data + i*operand.stride[0],
+				  operand.stride + 1,
+				  operand.shape + 1 )
+	{}
+};
+
+template< typename Derived >
+template< typename ... OtherIndices >
+typename AccessorResult< Derived, int, OtherIndices ... >::type
+TensorBase<Derived>::operator()( int i, OtherIndices ... dims )
+{
+	return typename AccessorResult< Derived, int, OtherIndices ... >::type( *static_cast<Derived*>(this), i )(dims...);
+}
+
+template< typename Derived >
+TensorExp_Slice<Derived>
+TensorBase<Derived>::operator()( int i )
+{
+	return TensorExp_Slice<Derived>( *static_cast<Derived*>(this), i );
+}
+
 int main()
 {
     MatrixR<float,3*4,4> m;
     m.setZero();
     TensorMap<float,3> t( m, 3, 4, 4 );
 
-    t(0,0,0) = 1;
-    t(0,0)(1) = 2;
-    t(0)(0,2) = 3;
+    t(0,0,0)   = 1;
+    t(0,0)(1)  = 2;
+    t(0)(0,2)  = 3;
     t(0)(0)(3) = 4;
 
     t(0,1) = Vector<float,4>( 5, 6, 7, 8 );
 	t(0)(2) = Vector<float,4>( 9, 10, 11, 12 );
 	t(0)(3)() = Vector<float,4>( 13, 14, 15, 16 );
 
-	t(1)()(0) = Vector<float,4>( 17, 21, 25, 29 );
-	t(1)()(2) = t(1)()(0) + 2; // Broadcasting
+	//t(1)()(0) = Vector<float,4>( 17, 21, 25, 29 );
+	//t(1)()(2) = t(1)()(0) + 2; // Broadcasting
 
-	assert( t.contract<0,1>().rows() == 3*4 );
+	//assert( t.contract<0,1>().rows() == 3*4 );
 
-	t(2) = t(1) + MatrixR<float>::Ones( t(1)().shape[0], t(1).cols() );
+	//t(2) = t(1) + MatrixR<float>::Ones( t(1)().shape[0], t(1).cols() );
+
+	Tensor<float,3> t2(m);
+    t2(0,0,0)   = 1;
+    t2(0,0)(1)  = 2;
+    t2(0)(0,2)  = 3;
+    t2(0)(0)(3) = 4;
 
 	// Check the result
 	const ulong imax = 16;
