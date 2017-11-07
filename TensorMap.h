@@ -96,8 +96,8 @@ struct TensorMapBase
             std::copy( other.stride_, other.stride_ + current_dim, stride_);
         }
 
-        std::copy( other.shape_+current_dim, other.shape_+dim+1, shape_+current_dim );
-        std::copy( other.stride_+current_dim, other.stride_+dim+1, stride_+current_dim );
+        std::copy( other.shape_+current_dim, other.shape_+dim, shape_+current_dim );
+        std::copy( other.stride_+current_dim, other.stride_+dim, stride_+current_dim );
     }
     TensorMapBase( Slice, size_t i, size_t current_dim, ConstAs<Scalar_,TensorMapBase<Scalar_, dim+1>>& other )
     {
@@ -311,7 +311,7 @@ struct TensorMapBase_EigenInterface<Scalar_,2>
     TensorMapBase_EigenInterface<Scalar_,2>( Args ... args )
      : TensorMapBase_ConstInterface<Scalar_,2>( args... ),
        EigenEquivalent( this->data_, this->shape_[0], this->shape_[1],
-                       Stride(this->stride_[0], this->stride_[1]) )
+                        Stride(this->stride_[0], this->stride_[1]) )
     {}
 };
 
