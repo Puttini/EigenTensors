@@ -1,9 +1,15 @@
 #include <iostream>
 #include "ConstScheme1.h"
 #include "ConstScheme2.h"
+#include "InheritScheme1.h"
+
+#include "TensorMap.h"
 
 template< typename Scalar >
-using ConstScheme = ConstScheme2<Scalar>;
+using ConstScheme = ConstScheme3<Scalar>;
+
+template< typename Scalar >
+using InheritScheme = InheritScheme1<Scalar>;
 
 void f1( const int& i )
 {}
@@ -12,15 +18,19 @@ void f2( int i )
 void f3( int& i )
 {}
 
-int main( int argc, char** argv )
+void test_schemes()
 {
-    // const tests
+    // Const tests
     int i = 0;
     ConstScheme<int> a(&i);
     ConstScheme<const int> b(&i);
     ConstScheme<int> c(a);
     ConstScheme<const int> d(b);
     ConstScheme<const int> e(a);
+    ConstScheme<const int> g( a.copy() );
+    ConstScheme<int> h( a.copy().copy() );
+    ConstScheme<int> j = ConstScheme<int>(a);
+    j.f() = 3;
 
     f1( a.f() );
     f1( b.f() );
@@ -28,6 +38,28 @@ int main( int argc, char** argv )
     f2( b.f() );
     f3( a.f() );
 
-    // Inheritance test ?
+    // Inheritance tests
+    InheritScheme<int> x1(&i);
+    InheritScheme<int> x2(x1);
+    InheritScheme<const int> x3(x1);
+    InheritScheme<int> x4( a );
+}
+
+int main( int argc, char** argv )
+{
+    test_schemes();
+
+    MatrixR<float,4,4> m;
+    TensorMap<float,3> t( m, 4, 2, 2 );
+    Eigen::Map< const MatrixR<float,4,4> > const_map( m.data() );
+    TensorMap<float,3> t1( m.data(), 4, 2, 2 );
+    TensorMap<const float,3> t2( m.data(), 4, 2, 2 );
+    TensorMap<const float,3> t3( const_map.data(), InnerStride(1), 4, 2, 2 );
+
+    //TensorMap<float,3> t4( const_map.data(), 4, 2, 2 ); // Error
+    //TensorMap<float,3> t5( m, 4, 2, 3 ); // Runtime Error
+    //TensorMap<float,4> t6( m, 4, 2, 2 ); // Error
+    //TensorMap<float,0> t7( m ); // Error
+
     return 0;
 }
