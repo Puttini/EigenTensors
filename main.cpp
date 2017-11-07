@@ -60,6 +60,14 @@ int main( int argc, char** argv )
     //TensorMap<float,3> t5( m, 4, 2, 3 ); // Runtime Error
     //TensorMap<float,4> t6( m, 4, 2, 2 ); // Error
     //TensorMap<float,0> t7( m ); // Error
+    //TensorMap<float,2> sub1( t ); // Error
+
+    TensorMap<float,3> t8(t);
+    TensorMap<const float,3> t9 = TensorMap<float,3>(t);
+
+    //TensorMap<float,2> sub2( Slice<2>(0), t );  // Error
+    //t.slice<1>( 3 ); // Runtime error
+    TensorMap<float,2> sub3 = t.slice<1>(1);
 
     return 0;
 }

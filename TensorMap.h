@@ -15,12 +15,22 @@ using MatrixR = Eigen::Matrix< Scalar, rows, cols, Eigen::RowMajor>;
 // Moreover, I had some troubles building Eigen's Tensor structes on Windows...
 
 template< size_t dim >
-struct Slice { size_t idx; };
+struct Slice
+{
+    size_t idx;
+
+    Slice( size_t idx = 0 )
+     : idx(idx)
+    {}
+};
 
 typedef Eigen::InnerStride<Eigen::Dynamic> InnerStride;
 typedef Eigen::Stride<Eigen::Dynamic,Eigen::Dynamic> Stride;
 
-template< typename Derived, typename Scalar, size_t dim >
+template< typename Scalar, size_t dim >
+struct TensorMap;
+
+template< typename Derived, typename SubDerived, typename SuperDerived, typename Scalar, size_t dim >
 struct TensorMapBase
 {
     typedef Eigen::Ref< ConstAs< Scalar, MatrixR<NonConst<Scalar>> >,
@@ -32,6 +42,13 @@ struct TensorMapBase
     Scalar* data_;
     size_t shape_[dim];
     size_t stride_[dim];
+
+    Derived& derived() { return *static_cast<Derived*>(this); }
+    const Derived& derived() const { return *static_cast<const Derived*>(this); }
+
+    // For debug !!
+    TensorMapBase()
+    {}
 
     template< typename ... Dimensions >
     TensorMapBase( Scalar* data, const InnerStride& inner_stride, Dimensions ... dimensions )
@@ -52,7 +69,44 @@ struct TensorMapBase
     TensorMapBase( EigenRef&& mat, Dimensions ... dimensions )
      : TensorMapBase( mat.data(), InnerStride(mat.innerStride()), dimensions... )
     {
-        assert( shape_[0] * stride_[0] == mat.rows()*mat.cols() );
+        assert( shape_[0]*stride_[0] == mat.rows()*mat.cols() && "Dimensions do not match the Eigen matrix" );
+    }
+
+    TensorMapBase( Derived& other )
+    {
+        data_ = other.data_;
+        std::copy( other.stride_, other.stride_+dim, stride_ );
+        std::copy( other.shape_, other.shape_+dim, shape_ );
+    }
+    TensorMapBase( NonConst<Derived>&& other )
+    {
+        data_ = other.data_;
+        std::copy( other.stride_, other.stride_+dim, stride_ );
+        std::copy( other.shape_, other.shape_+dim, shape_ );
+    }
+
+    // Slicing construction
+    template< size_t SliceDim >
+    TensorMapBase( const Slice<SliceDim>& slice, SuperDerived& super )
+    {
+        static_assert( SliceDim < dim, "Slice used on invalid dimension" );
+        assert( slice.idx < super.shape_[SliceDim] && "Index out of shape" );
+        data_ = super.data_ + slice.idx * super.stride_[SliceDim];
+        std::copy( super.stride_, super.stride_+SliceDim, stride_ );
+        std::copy( super.shape_, super.shape_+SliceDim, shape_ );
+        std::copy( super.stride_+SliceDim+1, super.stride_+dim+1, stride_+SliceDim );
+        std::copy( super.shape_+SliceDim+1, super.shape_+dim+1, shape_+SliceDim );
+    }
+    template< size_t SliceDim >
+    TensorMapBase( const Slice<SliceDim>& slice, NonConst<SuperDerived>&& super )
+    {
+        static_assert( SliceDim < dim, "Slice used on invalid dimension" );
+        assert( slice.idx < super.shape_[SliceDim] && "Index out of shape" );
+        data_ = super.data_ + slice.idx * super.stride_[SliceDim];
+        std::copy( super.stride_, super.stride_+SliceDim, stride_ );
+        std::copy( super.shape_, super.shape_+SliceDim, shape_ );
+        std::copy( super.stride_+SliceDim+1, super.stride_+dim+1, stride_+SliceDim );
+        std::copy( super.shape_+SliceDim+1, super.shape_+dim+1, shape_+SliceDim );
     }
 
     // Used to initialize strides and shapes in constructors
@@ -68,16 +122,23 @@ struct TensorMapBase
     {
         shape_[s] = d;
     }
+
+    template< size_t SliceDim >
+    SubDerived slice( size_t idx )
+    { return SubDerived( Slice<SliceDim>(idx), derived() ); }
 };
 
 #define TENSOR_MAP_BASE( Derived, Scalar, dim ) TensorMapBase< \
     ConstAs< Scalar, Derived< NonConst<Scalar>, dim > >, \
+    ConstAs< Scalar, Derived< NonConst<Scalar>, dim-1 > >, \
+    ConstAs< Scalar, Derived< NonConst<Scalar>, dim+1 > >, \
     Scalar, dim >
 
 template< typename Scalar, size_t dim >
 struct TensorMap : public TENSOR_MAP_BASE( TensorMap, Scalar, dim )
 {
     typedef TENSOR_MAP_BASE( TensorMap, Scalar, dim ) Base;
+
     using Base::Base;
 };
 
