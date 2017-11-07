@@ -98,7 +98,7 @@ struct TensorMapBase
         std::copy( super.shape_+SliceDim+1, super.shape_+dim+1, shape_+SliceDim );
     }
     template< size_t SliceDim >
-    TensorMapBase( const Slice<SliceDim>& slice, NonConst<SuperDerived>&& super )
+    TensorMapBase( const Slice<SliceDim>& slice, SuperDerived&& super )
     {
         static_assert( SliceDim < dim, "Slice used on invalid dimension" );
         assert( slice.idx < super.shape_[SliceDim] && "Index out of shape" );
@@ -124,13 +124,18 @@ struct TensorMapBase
     }
 
     template< size_t SliceDim >
+    SubDerived slice( size_t idx ) const
+    {
+        return SubDerived( Slice<SliceDim>(idx), derived() );
+    }
+    template< size_t SliceDim >
     SubDerived slice( size_t idx )
     { return SubDerived( Slice<SliceDim>(idx), derived() ); }
 };
 
 #define TENSOR_MAP_BASE( Derived, Scalar, dim ) TensorMapBase< \
     ConstAs< Scalar, Derived< NonConst<Scalar>, dim > >, \
-    ConstAs< Scalar, Derived< NonConst<Scalar>, dim-1 > >, \
+    Derived< NonConst<Scalar>, dim-1 >, \
     ConstAs< Scalar, Derived< NonConst<Scalar>, dim+1 > >, \
     Scalar, dim >
 
