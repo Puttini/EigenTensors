@@ -109,7 +109,11 @@ int main( int argc, char** argv )
     t()(0,0);
 
     t.stride(0);
-    t.reshape<4>(2,2,2,2)()(1)()();
+    t.reshape<4>(2,2,2,2)()(1)()(0);
+
+    Vector<float,8> v2 = t.reshape<2>(4,4).contractFirst();
+    t.reshape<2>(2,8).contractLast() = v2;
+    t.ravel().setZero();
 
     return 0;
 }

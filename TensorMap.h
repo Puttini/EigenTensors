@@ -26,6 +26,9 @@ class TensorMap;
 namespace TensorMapTools
 {
 
+// These little structs are used to keep easy-to-read constructors
+// of TensorMapBase
+
 template<size_t dim>
 struct Slice
 {
@@ -84,6 +87,10 @@ protected:
     const ConstDerived &derived() const { return *static_cast<const ConstDerived *>(this); }
 
 public:
+    TensorMapBase()
+     : data_(NULL)
+    {}
+
     // Dimension constructors
     template<typename ... Dimensions>
     TensorMapBase(Scalar *data, const DynInnerStride &inner_stride, Dimensions ... dimensions)
@@ -203,17 +210,19 @@ public:
         return s;
     }
 
-    Eigen::Map<Vector<NonConst<Scalar>>>
+    Eigen::Map<Vector<NonConst<Scalar>>, Eigen::Unaligned, DynInnerStride>
     ravel()
     {
         assert(ravelable() && "Cannot be raveled");
-        return Eigen::Map<Vector<NonConst<Scalar>>>(data_, size(), DynInnerStride(stride_[dim - 1]));
+        return Eigen::Map<Vector<NonConst<Scalar>>,
+                Eigen::Unaligned, DynInnerStride>(data_, size(), DynInnerStride(stride_[dim - 1]));
     }
-    Eigen::Map<const Vector<NonConst<Scalar>>>
+    Eigen::Map<const Vector<NonConst<Scalar>>, Eigen::Unaligned, DynInnerStride>
     ravel() const
     {
         assert(ravelable() && "Cannot be raveled");
-        return Eigen::Map<const Vector<NonConst<Scalar>>>(data_, size(), DynInnerStride(stride_[dim - 1]));
+        return Eigen::Map<const Vector<NonConst<Scalar>>,
+                Eigen::Unaligned, DynInnerStride>(data_, size(), DynInnerStride(stride_[dim - 1]));
     }
 
     size_t shape(size_t i) const { return shape_[i]; }
@@ -228,6 +237,42 @@ public:
     TensorMap<Const<Scalar>,NewDim>
     reshape( Dimensions ... dimensions ) const
     { return TensorMap<Const<Scalar>,NewDim>( data_, dimensions... ); }
+
+    TensorMap<Scalar,dim-1>
+    contractFirst()
+    {
+        assert(ravelable() && "Cannot be trivially contracted");
+        TensorMap<Scalar,dim-1> contracted( Slice<0>(0), derived() );
+        contracted.shape_[0] = shape_[0]*shape_[1];
+        return contracted;
+    };
+    TensorMap<Const<Scalar>,dim-1>
+    contractFirst() const
+    {
+        assert(ravelable() && "Cannot be trivially contracted");
+        TensorMap<Const<Scalar>,dim-1> contracted( Slice<0>(0), derived() );
+        contracted.shape_[0] = shape_[0]*shape_[1];
+        return contracted;
+    };
+
+    TensorMap<Scalar,dim-1>
+    contractLast()
+    {
+        assert(ravelable() && "Cannot be trivially contracted");
+        TensorMap<Scalar,dim-1> contracted( Slice<dim-1>(0), derived() );
+        contracted.shape_[dim-2] = shape_[dim-1]*shape_[dim-1];
+        contracted.stride_[dim-2] = stride_[dim-1];
+        return contracted;
+    };
+    TensorMap<Const<Scalar>,dim-1>
+    contractLast() const
+    {
+        assert(ravelable() && "Cannot be trivially contracted");
+        TensorMap<Const<Scalar>,dim-1> contracted( Slice<dim-1>(0), derived() );
+        contracted.shape_[dim-2] = shape_[dim-1]*shape_[dim-1];
+        contracted.stride_[dim-2] = stride_[dim-1];
+        return contracted;
+    };
 };
 
 // ----------------------------------------------------------------------------------------
@@ -442,6 +487,5 @@ public:
                          TensorMapTools::DynStride(this->stride_[0], this->stride_[1]) )
     {}
 };
-
 
 #endif //TENSOR_TENSORMAP_H
