@@ -96,7 +96,7 @@ int main( int argc, char** argv )
     //t(0)()(0) = 1; // Error
     Vector<float,2> v = t(0)(0);
     t(0)(0) = v;
-    t(0)()(0) = 2*t()(0)(0);
+    t(0)()(0) = 2*t()(0)(0).topRows(2);
     t(0) += MatrixR<float,2,2>::Zero();
     t(0)(0,0) = 3;
     t(0)(0) = t(0)(0)();
@@ -111,6 +111,8 @@ int main( int argc, char** argv )
     t.stride(0);
     t.reshape<4>(2,2,2,2)()(1)()(0);
 
+    auto machin = t.reshape<4>(2,2,2,2).contract<1>();
+    auto truc = t.contractFirst();
     Vector<float,8> v2 = t.reshape<2>(4,4).contractFirst();
     t.reshape<2>(2,8).contractLast() = v2;
     t.ravel().setZero();

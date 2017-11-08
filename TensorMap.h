@@ -58,6 +58,9 @@ struct Stride
     {}
 };
 
+template< size_t >
+struct Contraction { };
+
 // Dynamic strides
 typedef Eigen::InnerStride<Eigen::Dynamic> DynInnerStride;
 typedef Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> DynStride;
@@ -128,6 +131,7 @@ public:
         std::copy(other.shape_, other.shape_ + dim, shape_);
     }
 
+protected:
     // Slicing construction
     template<size_t SliceDim>
     TensorMapBase(const Slice<SliceDim> &slice, SuperDerived &super)
@@ -140,7 +144,6 @@ public:
         std::copy(super.stride_ + SliceDim + 1, super.stride_ + dim + 1, stride_ + SliceDim);
         std::copy(super.shape_ + SliceDim + 1, super.shape_ + dim + 1, shape_ + SliceDim);
     }
-
     template<size_t SliceDim>
     TensorMapBase(const Slice<SliceDim> &slice, SuperDerived &&super)
     {
@@ -153,7 +156,40 @@ public:
         std::copy(super.shape_ + SliceDim + 1, super.shape_ + dim + 1, shape_ + SliceDim);
     }
 
-    // This is mainly used for binding numpy arrays
+    // Contraction construction (contracts ContractDim with ContractDim+1 dimensions)
+    template<size_t ContractDim>
+    TensorMapBase(const Contraction<ContractDim>&, SuperDerived& super)
+    {
+        static_assert(ContractDim < dim, "Contraction used on invalid dimension");
+        assert( super.stride_[ContractDim] == super.stride_[ContractDim+1] * super.shape_[ContractDim+1] &&
+            "Cannot trivially contract these dimensions" );
+        data_ = super.data_;
+
+        std::copy(super.stride_, super.stride_ + ContractDim, stride_);
+        std::copy(super.stride_ + ContractDim + 1, super.stride_ + dim + 1, stride_ + ContractDim);
+
+        std::copy(super.shape_, super.shape_ + ContractDim, shape_);
+        shape_[ContractDim] = super.shape_[ContractDim] * super.shape_[ContractDim+1];
+        std::copy(super.shape_ + ContractDim + 2, super.shape_ + dim + 1, shape_ + ContractDim+1);
+    }
+    template<size_t ContractDim>
+    TensorMapBase(const Contraction<ContractDim>&, SuperDerived&& super)
+    {
+        static_assert(ContractDim < dim, "Contraction used on invalid dimension");
+        assert( super.stride_[ContractDim] == super.stride_[ContractDim+1] * super.shape_[ContractDim+1] &&
+            "Cannot trivially contract these dimensions" );
+        data_ = super.data_;
+
+        std::copy(super.stride_, super.stride_ + ContractDim, stride_);
+        std::copy(super.stride_ + ContractDim + 1, super.stride_ + dim + 1, stride_ + ContractDim);
+
+        std::copy(super.shape_, super.shape_ + ContractDim, shape_);
+        shape_[ContractDim] = super.shape_[ContractDim] * super.shape_[ContractDim+1];
+        std::copy(super.shape_ + ContractDim + 2, super.shape_ + dim + 1, shape_ + ContractDim+1);
+    }
+
+public:
+    // This is a bit dirty, but mainly used for binding numpy arrays
     template< typename Integer >
     TensorMapBase( Scalar* data, const Shape<Integer>& shape, const Stride<Integer>& stride )
     {
@@ -238,41 +274,31 @@ public:
     reshape( Dimensions ... dimensions ) const
     { return TensorMap<Const<Scalar>,NewDim>( data_, dimensions... ); }
 
+    // Contracts ContractDim with ContractDim+1 dimensions
+    template< size_t ContractDim >
     TensorMap<Scalar,dim-1>
-    contractFirst()
+    contract()
     {
         assert(ravelable() && "Cannot be trivially contracted");
-        TensorMap<Scalar,dim-1> contracted( Slice<0>(0), derived() );
-        contracted.shape_[0] = shape_[0]*shape_[1];
-        return contracted;
+        return TensorMap<Scalar,dim-1>( Contraction<ContractDim>(), derived() );
     };
+    template< size_t ContractDim >
     TensorMap<Const<Scalar>,dim-1>
-    contractFirst() const
+    contract() const
     {
         assert(ravelable() && "Cannot be trivially contracted");
-        TensorMap<Const<Scalar>,dim-1> contracted( Slice<0>(0), derived() );
-        contracted.shape_[0] = shape_[0]*shape_[1];
-        return contracted;
+        return TensorMap<Const<Scalar>,dim-1>( Contraction<ContractDim>(), derived() );
     };
 
-    TensorMap<Scalar,dim-1>
-    contractLast()
-    {
-        assert(ravelable() && "Cannot be trivially contracted");
-        TensorMap<Scalar,dim-1> contracted( Slice<dim-1>(0), derived() );
-        contracted.shape_[dim-2] = shape_[dim-1]*shape_[dim-1];
-        contracted.stride_[dim-2] = stride_[dim-1];
-        return contracted;
-    };
-    TensorMap<Const<Scalar>,dim-1>
-    contractLast() const
-    {
-        assert(ravelable() && "Cannot be trivially contracted");
-        TensorMap<Const<Scalar>,dim-1> contracted( Slice<dim-1>(0), derived() );
-        contracted.shape_[dim-2] = shape_[dim-1]*shape_[dim-1];
-        contracted.stride_[dim-2] = stride_[dim-1];
-        return contracted;
-    };
+    TensorMap<Scalar,dim-1> contractFirst()
+    { return contract<0>(); };
+    TensorMap<Const<Scalar>,dim-1> contractFirst() const
+    { return contract<0>(); };
+
+    TensorMap<Scalar,dim-1> contractLast()
+    { return contract<dim-2>(); };
+    TensorMap<Const<Scalar>,dim-1> contractLast() const
+    { return contract<dim-2>(); };
 };
 
 // ----------------------------------------------------------------------------------------
