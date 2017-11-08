@@ -67,7 +67,7 @@ int main( int argc, char** argv )
     TensorMap<const float,3> t9 = TensorMap<float,3>(t);
 
     // Slicing
-    //TensorMap<float,2> sub2( Slice<2>(0), t );  // Error
+    //TensorMap<float,2> sub2( Slice<3>(0), t );  // Error
     //t.slice<1>( 3 ); // Runtime error
     TensorMap<float,2> sub3 = t.slice<1>(1);
     TensorMap<const float,2> sub4 = t.slice<1>(1);
@@ -93,7 +93,8 @@ int main( int argc, char** argv )
     const TensorMap<const float,1> i1( t(0)()(1) );
     //i1(3) = 2; // Error
     t(0)(0)(0) = 1;
-    t(0)()(0) = 1;
+    //t(0)()(0) = 1; // WTF (infinite recursive loop)
+    Vector<float,2> v = t(0)(0);
 
     return 0;
 }

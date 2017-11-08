@@ -49,6 +49,7 @@ struct TensorMapBase
     TensorMapBase()
     {}
 
+    // Dimension constructors
     template< typename ... Dimensions >
     TensorMapBase( Scalar* data, const InnerStride& inner_stride, Dimensions ... dimensions )
      : data_(data)
@@ -132,7 +133,7 @@ struct TensorMapBase
     { return SubDerived( Slice<SliceDim>(idx), derived() ); }
 };
 
-#define TENSOR_MAP_BASE( Derived, Scalar, dim, current_dim ) TensorMapBase< \
+#define TENSOR_MAP_BASE( Derived, Scalar, dim ) TensorMapBase< \
     ConstAs< Scalar, Derived< NonConst<Scalar>, dim > >, \
     Const< Derived< Const<Scalar>, dim > >, \
     Derived< Scalar, dim-1 >, \
@@ -140,12 +141,14 @@ struct TensorMapBase
     Scalar, dim >
 
 template< typename Scalar, size_t dim >
-struct TensorMap_ConstInterface : public TENSOR_MAP_BASE( TensorMap_ConstInterface, Scalar, dim, current_dim )
+struct TensorMap_ConstInterface : public TENSOR_MAP_BASE( TensorMap_ConstInterface, Scalar, dim )
 {
-    typedef TENSOR_MAP_BASE( TensorMap_ConstInterface, Scalar, dim, current_dim ) Base;
+    typedef TENSOR_MAP_BASE( TensorMap_ConstInterface, Scalar, dim ) Base;
 
     //using Base::Base;
 
+    // WARNING: This can cause an infinite loop for undefined constructors,
+    // as this constructor can call itself
     template< typename ... Args >
     TensorMap_ConstInterface( Args ... args )
     : Base(args...)
@@ -188,7 +191,7 @@ struct TensorMap<Scalar,1,0> : public TensorMap_ConstInterface<Scalar,1>,
     template< typename ... Args >
     TensorMap( Args ... args )
      : Base(args...),
-       EigenBase( this->data_, this->shape_[0], this->stride_[0] )
+       EigenBase( this->data_, this->shape_[0], InnerStride(this->stride_[0]) )
     {}
 
     TensorMap< Scalar, 1, 1 >
@@ -217,6 +220,76 @@ struct TensorMap<Scalar,1,1> : public TensorMap_ConstInterface<Scalar,1>,
     TensorMap( Args ... args )
             : Base(args...),
               EigenBase( this->data_, this->shape_[0], InnerStride(this->stride_[0]) )
+    {}
+};
+
+template< typename Scalar >
+struct TensorMap<Scalar,2,0> : public TensorMap_ConstInterface<Scalar,2>,
+                               public Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned, Stride >
+{
+    typedef TensorMap_ConstInterface<Scalar,2> Base;
+    typedef Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned, Stride > EigenBase;
+
+    template< typename ... Args >
+    TensorMap( Args ... args )
+            : Base(args...),
+              EigenBase( this->data_, this->shape_[0], this->shape_[1], Stride(this->stride_[0], this->stride_[1]) )
+    {}
+
+    TensorMap< Scalar, 2, 1 >
+    operator()( void )
+    { return TensorMap< Scalar, 2, 1 >( *this ); };
+    TensorMap< Const<Scalar>, 2, 1 >
+    operator()( void ) const
+    { return TensorMap< Const<Scalar>, 2, 1 >( *this ); };
+
+    TensorMap< Scalar, 1, 0 >
+    operator()( size_t i )
+    { return TensorMap< Scalar, 1, 0 >( Slice<0>(i), *this ); };
+    TensorMap< Const<Scalar>, 1, 0 >
+    operator()( size_t i ) const
+    { return TensorMap< Const<Scalar>, 1, 0 >( Slice<0>(i), *this ); };
+};
+
+template< typename Scalar >
+struct TensorMap<Scalar,2,1> : public TensorMap_ConstInterface<Scalar,2>,
+                               public Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned, Stride >
+{
+    typedef TensorMap_ConstInterface<Scalar,2> Base;
+    typedef Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned, Stride > EigenBase;
+
+    template< typename ... Args >
+    TensorMap( Args ... args )
+            : Base(args...),
+              EigenBase( this->data_, this->shape_[0], this->shape_[1], Stride(this->stride_[0], this->stride_[1]) )
+    {}
+
+    TensorMap< Scalar, 2, 2 >
+    operator()( void )
+    { return TensorMap< Scalar, 2, 2 >( *this ); };
+    TensorMap< Const<Scalar>, 2, 2 >
+    operator()( void ) const
+    { return TensorMap< Const<Scalar>, 2, 2 >( *this ); };
+
+    TensorMap< Scalar, 1, 1 >
+    operator()( size_t i )
+    { return TensorMap< Scalar, 1, 1 >( Slice<1>(i), *this ); };
+    TensorMap< Const<Scalar>, 1, 1 >
+    operator()( size_t i ) const
+    { return TensorMap< Const<Scalar>, 1, 1 >( Slice<1>(i), *this ); };
+};
+
+template< typename Scalar >
+struct TensorMap<Scalar,2,2> : public TensorMap_ConstInterface<Scalar,2>,
+                               public Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned, Stride >
+{
+    typedef TensorMap_ConstInterface<Scalar,2> Base;
+    typedef Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned, Stride > EigenBase;
+
+    template< typename ... Args >
+    TensorMap( Args ... args )
+            : Base(args...),
+              EigenBase( this->data_, this->shape_[0], this->shape_[1], Stride(this->stride_[0], this->stride_[1]) )
     {}
 };
 
