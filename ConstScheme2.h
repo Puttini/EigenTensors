@@ -43,8 +43,16 @@ struct Base
     Base( NonConst<Derived>&& o ) : i(o.i)
     {}
 
-    Scalar f() const { return *i; }
-    Scalar& f() { return *i; }
+    Scalar f() const
+    {
+        std::cout << "const" << std::endl;
+        return *i;
+    }
+    Scalar& f()
+    {
+        std::cout << "non-const" << std::endl;
+        return *i;
+    }
 
     Derived copy()
     { return Derived( derived() ); }

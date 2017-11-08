@@ -3,7 +3,7 @@
 
 #include <Eigen/Eigen>
 
-template< typename Scalar, size_t rows = Eigen::Dynamic, size_t cols = Eigen::Dynamic >
+template< typename Scalar, int rows = Eigen::Dynamic, int cols = Eigen::Dynamic >
 using MatrixR = Eigen::Matrix< Scalar, rows, cols, Eigen::RowMajor>;
 
 // ----------------------------------------------------------------------------------------
@@ -27,10 +27,7 @@ struct Slice
 typedef Eigen::InnerStride<Eigen::Dynamic> InnerStride;
 typedef Eigen::Stride<Eigen::Dynamic,Eigen::Dynamic> Stride;
 
-template< typename Scalar, size_t dim >
-struct TensorMap;
-
-template< typename Derived, typename SubDerived, typename SuperDerived, typename Scalar, size_t dim >
+template< typename Derived, typename ConstDerived, typename SubDerived, typename SuperDerived, typename Scalar, size_t dim >
 struct TensorMapBase
 {
     typedef Eigen::Ref< ConstAs< Scalar, MatrixR<NonConst<Scalar>> >,
@@ -44,7 +41,7 @@ struct TensorMapBase
     size_t stride_[dim];
 
     Derived& derived() { return *static_cast<Derived*>(this); }
-    const Derived& derived() const { return *static_cast<const Derived*>(this); }
+    const ConstDerived& derived() const { return *static_cast<const ConstDerived*>(this); }
 
     // For debug !!
     TensorMapBase()
@@ -133,16 +130,17 @@ struct TensorMapBase
     { return SubDerived( Slice<SliceDim>(idx), derived() ); }
 };
 
-#define TENSOR_MAP_BASE( Derived, Scalar, dim ) TensorMapBase< \
-    ConstAs< Scalar, Derived< NonConst<Scalar>, dim > >, \
-    Derived< NonConst<Scalar>, dim-1 >, \
-    ConstAs< Scalar, Derived< NonConst<Scalar>, dim+1 > >, \
+#define TENSOR_MAP_BASE( Derived, Scalar, dim, current_dim ) TensorMapBase< \
+    ConstAs< Scalar, Derived< NonConst<Scalar>, dim, current_dim > >, \
+    Const< Derived< Const<Scalar>, dim, current_dim > >, \
+    Derived< Scalar, dim-1, current_dim >, \
+    ConstAs< Scalar, Derived< Scalar, dim+1, current_dim > >, \
     Scalar, dim >
 
-template< typename Scalar, size_t dim >
-struct TensorMap : public TENSOR_MAP_BASE( TensorMap, Scalar, dim )
+template< typename Scalar, size_t dim, size_t current_dim = 0 >
+struct TensorMap : public TENSOR_MAP_BASE( TensorMap, Scalar, dim, current_dim )
 {
-    typedef TENSOR_MAP_BASE( TensorMap, Scalar, dim ) Base;
+    typedef TENSOR_MAP_BASE( TensorMap, Scalar, dim, current_dim ) Base;
 
     using Base::Base;
 };

@@ -69,7 +69,7 @@ int main( int argc, char** argv )
     //t.slice<1>( 3 ); // Runtime error
     TensorMap<float,2> sub3 = t.slice<1>(1);
     TensorMap<const float,2> sub4 = t.slice<1>(1);
-    t2.slice<1>(2);
+    t2.slice<1>(1);
 
     return 0;
 }
