@@ -74,7 +74,7 @@ int main( int argc, char** argv )
     t2.slice<1>(1);
     TensorMap<const float,2> sub5 = t2.slice<0>(0);
 
-    // operator()
+    // operator()( void )
     auto o1 = t();
     auto o2 = t()();
     auto o3 = t()()();
@@ -84,6 +84,14 @@ int main( int argc, char** argv )
     o2();
     r3()()();
     //auto o4 = t()()()(); // Error
+
+    // operator()( size_t )
+    t(0)()();
+    //t(0)()()(); // Error
+    t(0)(0)();
+    t(0)()(0);
+    const TensorMap<const float,1> i1( t(0)()(1) );
+    //TensorMap<float,1> i2 = i1(); // Error
 
     return 0;
 }

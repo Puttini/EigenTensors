@@ -9,6 +9,7 @@ struct InheritScheme1 : public ConstScheme3<Scalar>
     typedef ConstScheme3<Scalar> MyBase;
     using MyBase::MyBase;
 
+    // Can cause infinite recursive loop using copy constructor ?
     template< typename ... Args >
     InheritScheme1( Args ... args )
      : MyBase( args... )

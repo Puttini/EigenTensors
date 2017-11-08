@@ -1,8 +1,6 @@
-//
-// Created by rooxyz on 08/11/17.
-//
-
 #ifndef EIGENTENSORS_INHERITSCHEME2_H
 #define EIGENTENSORS_INHERITSCHEME2_H
+
+
 
 #endif //EIGENTENSORS_INHERITSCHEME2_H

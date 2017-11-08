@@ -86,7 +86,7 @@ struct TensorMapBase
     template< size_t SliceDim >
     TensorMapBase( const Slice<SliceDim>& slice, SuperDerived& super )
     {
-        static_assert( SliceDim < dim, "Slice used on invalid dimension" );
+        static_assert( SliceDim <= dim, "Slice used on invalid dimension" );
         assert( slice.idx < super.shape_[SliceDim] && "Index out of shape" );
         data_ = super.data_ + slice.idx * super.stride_[SliceDim];
         std::copy( super.stride_, super.stride_+SliceDim, stride_ );
@@ -163,6 +163,10 @@ struct TensorMap : public TensorMap_ConstInterface<Scalar,dim>
     TensorMap< Const<Scalar>, dim, current_dim+1 >
     operator()( void ) const
     { return TensorMap< Const<Scalar>, dim, current_dim+1 >( *this ); };
+
+    TensorMap< Scalar, dim-1, current_dim >
+    operator()( size_t i )
+    { return TensorMap< Scalar, dim-1, current_dim >( Slice<current_dim>(i), *this ); };
 };
 
 #endif //TENSOR_TENSORMAP_H
