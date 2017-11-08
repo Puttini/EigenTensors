@@ -144,7 +144,12 @@ struct TensorMap_ConstInterface : public TENSOR_MAP_BASE( TensorMap_ConstInterfa
 {
     typedef TENSOR_MAP_BASE( TensorMap_ConstInterface, Scalar, dim, current_dim ) Base;
 
-    using Base::Base;
+    //using Base::Base;
+
+    template< typename ... Args >
+    TensorMap_ConstInterface( Args ... args )
+    : Base(args...)
+    {}
 };
 
 template< typename Scalar, size_t dim, size_t current_dim = 0 >
@@ -199,6 +204,20 @@ struct TensorMap<Scalar,1,0> : public TensorMap_ConstInterface<Scalar,1>,
     Scalar
     operator()( size_t i ) const
     { return this->EigenBase::operator()(i); };
+};
+
+template< typename Scalar >
+struct TensorMap<Scalar,1,1> : public TensorMap_ConstInterface<Scalar,1>,
+                               public Eigen::Map< ConstAs<Scalar,Vector<NonConst<Scalar>>>, Eigen::Unaligned, InnerStride >
+{
+    typedef TensorMap_ConstInterface<Scalar,1> Base;
+    typedef Eigen::Map< ConstAs<Scalar,Vector<NonConst<Scalar>>>, Eigen::Unaligned, InnerStride > EigenBase;
+
+    template< typename ... Args >
+    TensorMap( Args ... args )
+            : Base(args...),
+              EigenBase( this->data_, this->shape_[0], InnerStride(this->stride_[0]) )
+    {}
 };
 
 #endif //TENSOR_TENSORMAP_H

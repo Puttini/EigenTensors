@@ -91,7 +91,9 @@ int main( int argc, char** argv )
     t(0)(0)();
     t(0)()(0);
     const TensorMap<const float,1> i1( t(0)()(1) );
-    //TensorMap<float,1> i2 = i1(); // Error
+    //i1(3) = 2; // Error
+    t(0)(0)(0) = 1;
+    t(0)()(0) = 1;
 
     return 0;
 }
