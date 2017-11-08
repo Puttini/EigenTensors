@@ -4,7 +4,9 @@
 #include <Eigen/Eigen>
 
 template< typename Scalar, int rows = Eigen::Dynamic, int cols = Eigen::Dynamic >
-using MatrixR = Eigen::Matrix< Scalar, rows, cols, Eigen::RowMajor>;
+using MatrixR = Eigen::Matrix< Scalar, rows, cols, Eigen::RowMajor >;
+template< typename Scalar, int size = Eigen::Dynamic >
+using Vector = Eigen::Matrix< Scalar, size, 1, Eigen::ColMajor >;
 
 // ----------------------------------------------------------------------------------------
 
@@ -150,7 +152,6 @@ struct TensorMap : public TensorMap_ConstInterface<Scalar,dim>
 {
     static_assert( current_dim <= dim, "You probably called operator() too many times" );
     typedef TensorMap_ConstInterface<Scalar,dim> Base;
-    //using Base::Base;
 
     template< typename ... Args >
     TensorMap( Args ... args )
@@ -167,6 +168,37 @@ struct TensorMap : public TensorMap_ConstInterface<Scalar,dim>
     TensorMap< Scalar, dim-1, current_dim >
     operator()( size_t i )
     { return TensorMap< Scalar, dim-1, current_dim >( Slice<current_dim>(i), *this ); };
+    TensorMap< Const<Scalar>, dim-1, current_dim >
+    operator()( size_t i ) const
+    { return TensorMap< Const<Scalar>, dim-1, current_dim >( Slice<current_dim>(i), *this ); };
+};
+
+template< typename Scalar >
+struct TensorMap<Scalar,1,0> : public TensorMap_ConstInterface<Scalar,1>,
+    public Eigen::Map< ConstAs<Scalar,Vector<NonConst<Scalar>>>, Eigen::Unaligned, InnerStride >
+{
+    typedef TensorMap_ConstInterface<Scalar,1> Base;
+    typedef Eigen::Map< ConstAs<Scalar,Vector<NonConst<Scalar>>>, Eigen::Unaligned, InnerStride > EigenBase;
+
+    template< typename ... Args >
+    TensorMap( Args ... args )
+     : Base(args...),
+       EigenBase( this->data_, this->shape_[0], this->stride_[0] )
+    {}
+
+    TensorMap< Scalar, 1, 1 >
+    operator()( void )
+    { return TensorMap< Scalar, 1, 1 >( *this ); };
+    TensorMap< Const<Scalar>, 1, 1 >
+    operator()( void ) const
+    { return TensorMap< Const<Scalar>, 1, 1 >( *this ); };
+
+    Scalar&
+    operator()( size_t i )
+    { return this->EigenBase::operator()(i); };
+    Scalar
+    operator()( size_t i ) const
+    { return this->EigenBase::operator()(i); };
 };
 
 #endif //TENSOR_TENSORMAP_H
