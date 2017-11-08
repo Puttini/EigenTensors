@@ -93,8 +93,11 @@ int main( int argc, char** argv )
     const TensorMap<const float,1> i1( t(0)()(1) );
     //i1(3) = 2; // Error
     t(0)(0)(0) = 1;
-    //t(0)()(0) = 1; // WTF (infinite recursive loop)
+    //t(0)()(0) = 1; // Error
     Vector<float,2> v = t(0)(0);
+    t(0)(0) = v;
+    t(0)()(0) = 2*t()(0)(0);
+    t(0) += MatrixR<float,2,2>::Zero();
 
     return 0;
 }

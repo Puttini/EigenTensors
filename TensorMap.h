@@ -140,6 +140,7 @@ struct TensorMapBase
     ConstAs< Scalar, Derived< Scalar, dim+1 > >, \
     Scalar, dim >
 
+// This solves the const-ness issues (ex: converting 'const TensorMap<Scalar>' to 'const TensorMap<const Scalar>')
 template< typename Scalar, size_t dim >
 struct TensorMap_ConstInterface : public TENSOR_MAP_BASE( TensorMap_ConstInterface, Scalar, dim )
 {
@@ -147,11 +148,9 @@ struct TensorMap_ConstInterface : public TENSOR_MAP_BASE( TensorMap_ConstInterfa
 
     //using Base::Base;
 
-    // WARNING: This can cause an infinite loop for undefined constructors,
-    // as this constructor can call itself
     template< typename ... Args >
-    TensorMap_ConstInterface( Args ... args )
-    : Base(args...)
+    explicit TensorMap_ConstInterface( Args ... args )
+     : Base(args...)
     {}
 };
 
@@ -188,6 +187,10 @@ struct TensorMap<Scalar,1,0> : public TensorMap_ConstInterface<Scalar,1>,
     typedef TensorMap_ConstInterface<Scalar,1> Base;
     typedef Eigen::Map< ConstAs<Scalar,Vector<NonConst<Scalar>>>, Eigen::Unaligned, InnerStride > EigenBase;
 
+    using EigenBase::operator=;
+    using EigenBase::operator+=;
+    using EigenBase::operator-=;
+
     template< typename ... Args >
     TensorMap( Args ... args )
      : Base(args...),
@@ -216,6 +219,10 @@ struct TensorMap<Scalar,1,1> : public TensorMap_ConstInterface<Scalar,1>,
     typedef TensorMap_ConstInterface<Scalar,1> Base;
     typedef Eigen::Map< ConstAs<Scalar,Vector<NonConst<Scalar>>>, Eigen::Unaligned, InnerStride > EigenBase;
 
+    using EigenBase::operator=;
+    using EigenBase::operator+=;
+    using EigenBase::operator-=;
+
     template< typename ... Args >
     TensorMap( Args ... args )
             : Base(args...),
@@ -229,6 +236,10 @@ struct TensorMap<Scalar,2,0> : public TensorMap_ConstInterface<Scalar,2>,
 {
     typedef TensorMap_ConstInterface<Scalar,2> Base;
     typedef Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned, Stride > EigenBase;
+
+    using EigenBase::operator=;
+    using EigenBase::operator+=;
+    using EigenBase::operator-=;
 
     template< typename ... Args >
     TensorMap( Args ... args )
@@ -258,6 +269,10 @@ struct TensorMap<Scalar,2,1> : public TensorMap_ConstInterface<Scalar,2>,
     typedef TensorMap_ConstInterface<Scalar,2> Base;
     typedef Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned, Stride > EigenBase;
 
+    using EigenBase::operator=;
+    using EigenBase::operator+=;
+    using EigenBase::operator-=;
+
     template< typename ... Args >
     TensorMap( Args ... args )
             : Base(args...),
@@ -285,6 +300,10 @@ struct TensorMap<Scalar,2,2> : public TensorMap_ConstInterface<Scalar,2>,
 {
     typedef TensorMap_ConstInterface<Scalar,2> Base;
     typedef Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned, Stride > EigenBase;
+
+    using EigenBase::operator=;
+    using EigenBase::operator+=;
+    using EigenBase::operator-=;
 
     template< typename ... Args >
     TensorMap( Args ... args )
