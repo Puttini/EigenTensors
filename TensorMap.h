@@ -16,8 +16,16 @@ using Vector = Eigen::Matrix< Scalar, size, 1, Eigen::ColMajor >;
 // It is more user friendly than Eigen's Tensor structes (when it works)
 // Moreover, I had some troubles building Eigen's Tensor structes on Windows...
 
+// ----------------------------------------------------------------------------------------
+
+template< typename Scalar, size_t dim, size_t current_dim = 0 >
+class TensorMap;
+
+// ----------------------------------------------------------------------------------------
+
 namespace TensorMapTools
 {
+
 template<size_t dim>
 struct Slice
 {
@@ -28,49 +36,57 @@ struct Slice
 };
 
 template< typename Integer >
-struct Shapes
+struct Shape
 {
-    const Integer* shapes;
+    const Integer* shape;
 
-    Shapes( const Integer* shapes )
-     : shapes(shapes)
+    Shape( const Integer* shape )
+     : shape(shape)
     {}
 };
 
 template< typename Integer >
-struct Strides
+struct Stride
 {
-    const Integer* strides;
+    const Integer* stride;
 
-    Strides( const Integer* strides )
-     : strides(strides)
+    Stride( const Integer* stride )
+     : stride(stride)
     {}
 };
 
 // Dynamic strides
-typedef Eigen::InnerStride<Eigen::Dynamic> InnerStride;
-typedef Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> Stride;
+typedef Eigen::InnerStride<Eigen::Dynamic> DynInnerStride;
+typedef Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> DynStride;
+
+// ----------------------------------------------------------------------------------------
 
 template<typename Derived, typename ConstDerived, typename SubDerived, typename SuperDerived, typename Scalar, size_t dim>
-struct TensorMapBase
+class TensorMapBase
 {
     typedef Eigen::Ref<ConstAs<Scalar, MatrixR<NonConst<Scalar>>>,
-            Eigen::Unaligned, Stride>
+            Eigen::Unaligned, DynStride>
             EigenRef;
 
     static_assert(dim > 0, "You are a weird person");
 
+    template< typename OtherDerived, typename OtherConstDerived,
+            typename OtherSubDerived, typename OtherSuperDerived,
+            typename OtherScalar, size_t OtherDim >
+    friend class TensorMapBase;
+
+protected:
     Scalar *data_;
     size_t shape_[dim];
     size_t stride_[dim];
 
     Derived &derived() { return *static_cast<Derived *>(this); }
-
     const ConstDerived &derived() const { return *static_cast<const ConstDerived *>(this); }
 
+public:
     // Dimension constructors
     template<typename ... Dimensions>
-    TensorMapBase(Scalar *data, const InnerStride &inner_stride, Dimensions ... dimensions)
+    TensorMapBase(Scalar *data, const DynInnerStride &inner_stride, Dimensions ... dimensions)
             : data_(data)
     {
         static_assert(sizeof...(dimensions) == dim, "You passed a wrong number of dimensions");
@@ -80,12 +96,12 @@ struct TensorMapBase
 
     template<typename ... Dimensions>
     TensorMapBase(Scalar *data, Dimensions ... dimensions)
-            : TensorMapBase(data, InnerStride(1), dimensions...) {}
+            : TensorMapBase(data, DynInnerStride(1), dimensions...) {}
 
     // Only takes the inner stride into account ! (for now)
     template<typename ... Dimensions>
     TensorMapBase(EigenRef &&mat, Dimensions ... dimensions)
-            : TensorMapBase(mat.data(), InnerStride(mat.innerStride()), dimensions...)
+            : TensorMapBase(mat.data(), DynInnerStride(mat.innerStride()), dimensions...)
     {
         assert(shape_[0] * stride_[0] == mat.rows() * mat.cols() && "Dimensions do not match the Eigen matrix");
     }
@@ -130,6 +146,19 @@ struct TensorMapBase
         std::copy(super.shape_ + SliceDim + 1, super.shape_ + dim + 1, shape_ + SliceDim);
     }
 
+    // This is mainly used for binding numpy arrays
+    template< typename Integer >
+    TensorMapBase( Scalar* data, const Shape<Integer>& shape, const Stride<Integer>& stride )
+    {
+        data_ = data;
+        for ( size_t i = 0 ; i < dim ; ++i )
+        {
+            shape_[i] = shape.shape[i];
+            stride_[i] = stride.stride[i];
+        }
+    }
+
+protected:
     // Used to initialize strides and shapes in constructors
     template<size_t s, typename ... OtherDimensions>
     inline void _init(size_t d, OtherDimensions ... other_dimensions)
@@ -145,6 +174,7 @@ struct TensorMapBase
         shape_[s] = d;
     }
 
+public:
     // Returns a slice, along SliceDim
     template<size_t SliceDim>
     SubDerived slice(size_t idx) const { return SubDerived(Slice<SliceDim>(idx), derived()); }
@@ -152,7 +182,9 @@ struct TensorMapBase
     template<size_t SliceDim>
     SubDerived slice(size_t idx) { return SubDerived(Slice<SliceDim>(idx), derived()); }
 
-    // Utility methods
+
+    // --- Utility methods ---
+
     bool ravelable() const
     {
         for (size_t i = 0; i < dim - 1; ++i)
@@ -175,33 +207,48 @@ struct TensorMapBase
     ravel()
     {
         assert(ravelable() && "Cannot be raveled");
-        return Eigen::Map<Vector<NonConst<Scalar>>>(data_, size(), InnerStride(stride_[dim - 1]));
+        return Eigen::Map<Vector<NonConst<Scalar>>>(data_, size(), DynInnerStride(stride_[dim - 1]));
+    }
+    Eigen::Map<const Vector<NonConst<Scalar>>>
+    ravel() const
+    {
+        assert(ravelable() && "Cannot be raveled");
+        return Eigen::Map<const Vector<NonConst<Scalar>>>(data_, size(), DynInnerStride(stride_[dim - 1]));
     }
 
     size_t shape(size_t i) const { return shape_[i]; }
     size_t stride(size_t i) const { return stride_[i]; }
+
+    template< size_t NewDim, typename ... Dimensions >
+    TensorMap<Scalar,NewDim>
+    reshape( Dimensions ... dimensions )
+    { return TensorMap<Scalar,NewDim>( data_, dimensions... ); }
+
+    template< size_t NewDim, typename ... Dimensions >
+    TensorMap<Const<Scalar>,NewDim>
+    reshape( Dimensions ... dimensions ) const
+    { return TensorMap<Const<Scalar>,NewDim>( data_, dimensions... ); }
 };
 
 // ----------------------------------------------------------------------------------------
 
-// This class solves the const-ness issues (ex: converting 'const TensorMap<Scalar>' to 'const TensorMap<const Scalar>')
 #define TENSOR_MAP_BASE(Derived, Scalar, dim) TensorMapBase< \
-ConstAs< Scalar, Derived< NonConst<Scalar>, dim > >, \
-Const< Derived< Const<Scalar>, dim > >, \
-Derived< Scalar, dim-1 >, \
-ConstAs< Scalar, Derived< Scalar, dim+1 > >, \
-Scalar, dim >
+    ConstAs< Scalar, Derived< NonConst<Scalar>, dim > >, \
+    Const< Derived< Const<Scalar>, dim > >, \
+    Derived< Scalar, dim-1 >, \
+    ConstAs< Scalar, Derived< Scalar, dim+1 > >, \
+    Scalar, dim >
 
+// This class solves the const-ness issues (ex: converting 'const TensorMap<Scalar>' to 'const TensorMap<const Scalar>')
 template<typename Scalar, size_t dim>
-struct TensorMap_ConstInterface : public TENSOR_MAP_BASE(TensorMap_ConstInterface, Scalar, dim)
+class TensorMap_ConstInterface : public TENSOR_MAP_BASE(TensorMap_ConstInterface, Scalar, dim)
 {
     typedef TENSOR_MAP_BASE(TensorMap_ConstInterface, Scalar, dim) Base;
 
-    //using Base::Base;
-
+public:
     template<typename ... Args>
     explicit TensorMap_ConstInterface(Args ... args)
-            : Base(args...) {}
+     : Base(args...) {}
 };
 
 } // namespace TensorMapTools
@@ -210,12 +257,13 @@ struct TensorMap_ConstInterface : public TENSOR_MAP_BASE(TensorMap_ConstInterfac
 
 // This is the final class, that implements operator() and provides
 // Eigen operations on dimensions 1 and 2
-template< typename Scalar, size_t dim, size_t current_dim = 0 >
-struct TensorMap : public TensorMapTools::TensorMap_ConstInterface<Scalar,dim>
+template< typename Scalar, size_t dim, size_t current_dim >
+class TensorMap : public TensorMapTools::TensorMap_ConstInterface<Scalar,dim>
 {
     static_assert( current_dim <= dim, "You probably called operator() too many times" );
     typedef TensorMapTools::TensorMap_ConstInterface<Scalar,dim> Base;
 
+public:
     template< typename ... Args >
     TensorMap( Args ... args )
      : Base(args...)
@@ -246,12 +294,13 @@ struct TensorMap : public TensorMapTools::TensorMap_ConstInterface<Scalar,dim>
 };
 
 template< typename Scalar >
-struct TensorMap<Scalar,1,0> : public TensorMapTools::TensorMap_ConstInterface<Scalar,1>,
-    public Eigen::Map< ConstAs<Scalar,Vector<NonConst<Scalar>>>, Eigen::Unaligned, TensorMapTools::InnerStride >
+class TensorMap<Scalar,1,0> : public TensorMapTools::TensorMap_ConstInterface<Scalar,1>,
+    public Eigen::Map< ConstAs<Scalar,Vector<NonConst<Scalar>>>, Eigen::Unaligned, TensorMapTools::DynInnerStride >
 {
     typedef TensorMapTools::TensorMap_ConstInterface<Scalar,1> Base;
-    typedef Eigen::Map< ConstAs<Scalar,Vector<NonConst<Scalar>>>, Eigen::Unaligned, TensorMapTools::InnerStride > EigenBase;
+    typedef Eigen::Map< ConstAs<Scalar,Vector<NonConst<Scalar>>>, Eigen::Unaligned, TensorMapTools::DynInnerStride > EigenBase;
 
+public:
     using EigenBase::operator=;
     using EigenBase::operator+=;
     using EigenBase::operator-=;
@@ -260,7 +309,7 @@ struct TensorMap<Scalar,1,0> : public TensorMapTools::TensorMap_ConstInterface<S
     TensorMap( Args ... args )
      : Base(args...),
        EigenBase( this->data_, this->shape_[0],
-                  TensorMapTools::InnerStride(this->stride_[0]) )
+                  TensorMapTools::DynInnerStride(this->stride_[0]) )
     {}
 
     TensorMap< Scalar, 1, 1 >
@@ -279,12 +328,13 @@ struct TensorMap<Scalar,1,0> : public TensorMapTools::TensorMap_ConstInterface<S
 };
 
 template< typename Scalar >
-struct TensorMap<Scalar,1,1> : public TensorMapTools::TensorMap_ConstInterface<Scalar,1>,
-                               public Eigen::Map< ConstAs<Scalar,Vector<NonConst<Scalar>>>, Eigen::Unaligned, TensorMapTools::InnerStride >
+class TensorMap<Scalar,1,1> : public TensorMapTools::TensorMap_ConstInterface<Scalar,1>,
+                               public Eigen::Map< ConstAs<Scalar,Vector<NonConst<Scalar>>>, Eigen::Unaligned, TensorMapTools::DynInnerStride >
 {
     typedef TensorMapTools::TensorMap_ConstInterface<Scalar,1> Base;
-    typedef Eigen::Map< ConstAs<Scalar,Vector<NonConst<Scalar>>>, Eigen::Unaligned, TensorMapTools::InnerStride > EigenBase;
+    typedef Eigen::Map< ConstAs<Scalar,Vector<NonConst<Scalar>>>, Eigen::Unaligned, TensorMapTools::DynInnerStride > EigenBase;
 
+public:
     using EigenBase::operator=;
     using EigenBase::operator+=;
     using EigenBase::operator-=;
@@ -293,17 +343,18 @@ struct TensorMap<Scalar,1,1> : public TensorMapTools::TensorMap_ConstInterface<S
     TensorMap( Args ... args )
             : Base(args...),
               EigenBase( this->data_, this->shape_[0],
-                         TensorMapTools::InnerStride(this->stride_[0]) )
+                         TensorMapTools::DynInnerStride(this->stride_[0]) )
     {}
 };
 
 template< typename Scalar >
-struct TensorMap<Scalar,2,0> : public TensorMapTools::TensorMap_ConstInterface<Scalar,2>,
-                               public Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned, TensorMapTools::Stride >
+class TensorMap<Scalar,2,0> : public TensorMapTools::TensorMap_ConstInterface<Scalar,2>,
+                               public Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned, TensorMapTools::DynStride >
 {
     typedef TensorMapTools::TensorMap_ConstInterface<Scalar,2> Base;
-    typedef Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned, TensorMapTools::Stride > EigenBase;
+    typedef Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned, TensorMapTools::DynStride > EigenBase;
 
+public:
     using EigenBase::operator=;
     using EigenBase::operator+=;
     using EigenBase::operator-=;
@@ -312,7 +363,7 @@ struct TensorMap<Scalar,2,0> : public TensorMapTools::TensorMap_ConstInterface<S
     TensorMap( Args ... args )
             : Base(args...),
               EigenBase( this->data_, this->shape_[0], this->shape_[1],
-                         TensorMapTools::Stride(this->stride_[0], this->stride_[1]) )
+                         TensorMapTools::DynStride(this->stride_[0], this->stride_[1]) )
     {}
 
     TensorMap< Scalar, 2, 1 >
@@ -338,12 +389,13 @@ struct TensorMap<Scalar,2,0> : public TensorMapTools::TensorMap_ConstInterface<S
 };
 
 template< typename Scalar >
-struct TensorMap<Scalar,2,1> : public TensorMapTools::TensorMap_ConstInterface<Scalar,2>,
-                               public Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned, TensorMapTools::Stride >
+class TensorMap<Scalar,2,1> : public TensorMapTools::TensorMap_ConstInterface<Scalar,2>,
+                               public Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned, TensorMapTools::DynStride >
 {
     typedef TensorMapTools::TensorMap_ConstInterface<Scalar,2> Base;
-    typedef Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned, TensorMapTools::Stride > EigenBase;
+    typedef Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned, TensorMapTools::DynStride > EigenBase;
 
+public:
     using EigenBase::operator=;
     using EigenBase::operator+=;
     using EigenBase::operator-=;
@@ -352,7 +404,7 @@ struct TensorMap<Scalar,2,1> : public TensorMapTools::TensorMap_ConstInterface<S
     TensorMap( Args ... args )
             : Base(args...),
               EigenBase( this->data_, this->shape_[0], this->shape_[1],
-                         TensorMapTools::Stride(this->stride_[0], this->stride_[1]) )
+                         TensorMapTools::DynStride(this->stride_[0], this->stride_[1]) )
     {}
 
     TensorMap< Scalar, 2, 2 >
@@ -371,13 +423,14 @@ struct TensorMap<Scalar,2,1> : public TensorMapTools::TensorMap_ConstInterface<S
 };
 
 template< typename Scalar >
-struct TensorMap<Scalar,2,2> : public TensorMapTools::TensorMap_ConstInterface<Scalar,2>,
-                               public Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned, TensorMapTools::Stride >
+class TensorMap<Scalar,2,2> : public TensorMapTools::TensorMap_ConstInterface<Scalar,2>,
+                               public Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned, TensorMapTools::DynStride >
 {
     typedef TensorMapTools::TensorMap_ConstInterface<Scalar,2> Base;
     typedef Eigen::Map< ConstAs<Scalar,MatrixR<NonConst<Scalar>>>, Eigen::Unaligned,
-            TensorMapTools::Stride > EigenBase;
+            TensorMapTools::DynStride > EigenBase;
 
+public:
     using EigenBase::operator=;
     using EigenBase::operator+=;
     using EigenBase::operator-=;
@@ -386,7 +439,7 @@ struct TensorMap<Scalar,2,2> : public TensorMapTools::TensorMap_ConstInterface<S
     TensorMap( Args ... args )
             : Base(args...),
               EigenBase( this->data_, this->shape_[0], this->shape_[1],
-                         TensorMapTools::Stride(this->stride_[0], this->stride_[1]) )
+                         TensorMapTools::DynStride(this->stride_[0], this->stride_[1]) )
     {}
 };
 

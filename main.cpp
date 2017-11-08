@@ -109,6 +109,7 @@ int main( int argc, char** argv )
     t()(0,0);
 
     t.stride(0);
+    t.reshape<4>(2,2,2,2)()(1)()();
 
     return 0;
 }
