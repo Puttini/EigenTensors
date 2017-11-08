@@ -131,18 +131,38 @@ struct TensorMapBase
 };
 
 #define TENSOR_MAP_BASE( Derived, Scalar, dim, current_dim ) TensorMapBase< \
-    ConstAs< Scalar, Derived< NonConst<Scalar>, dim, current_dim > >, \
-    Const< Derived< Const<Scalar>, dim, current_dim > >, \
-    Derived< Scalar, dim-1, current_dim >, \
-    ConstAs< Scalar, Derived< Scalar, dim+1, current_dim > >, \
+    ConstAs< Scalar, Derived< NonConst<Scalar>, dim > >, \
+    Const< Derived< Const<Scalar>, dim > >, \
+    Derived< Scalar, dim-1 >, \
+    ConstAs< Scalar, Derived< Scalar, dim+1 > >, \
     Scalar, dim >
 
-template< typename Scalar, size_t dim, size_t current_dim = 0 >
-struct TensorMap : public TENSOR_MAP_BASE( TensorMap, Scalar, dim, current_dim )
+template< typename Scalar, size_t dim >
+struct TensorMap_ConstInterface : public TENSOR_MAP_BASE( TensorMap_ConstInterface, Scalar, dim, current_dim )
 {
-    typedef TENSOR_MAP_BASE( TensorMap, Scalar, dim, current_dim ) Base;
+    typedef TENSOR_MAP_BASE( TensorMap_ConstInterface, Scalar, dim, current_dim ) Base;
 
     using Base::Base;
+};
+
+template< typename Scalar, size_t dim, size_t current_dim = 0 >
+struct TensorMap : public TensorMap_ConstInterface<Scalar,dim>
+{
+    static_assert( current_dim <= dim, "You probably called operator() too many times" );
+    typedef TensorMap_ConstInterface<Scalar,dim> Base;
+    //using Base::Base;
+
+    template< typename ... Args >
+    TensorMap( Args ... args )
+     : Base(args...)
+    {}
+
+    TensorMap< Scalar, dim, current_dim+1 >
+    operator()( void )
+    { return TensorMap< Scalar, dim, current_dim+1 >( *this ); };
+    TensorMap< Const<Scalar>, dim, current_dim+1 >
+    operator()( void ) const
+    { return TensorMap< Const<Scalar>, dim, current_dim+1 >( *this ); };
 };
 
 #endif //TENSOR_TENSORMAP_H

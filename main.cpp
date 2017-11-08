@@ -49,6 +49,7 @@ int main( int argc, char** argv )
 {
     test_schemes();
 
+    // Const and construction tests
     MatrixR<float,4,4> m;
     TensorMap<float,3> t( m, 4, 2, 2 );
     Eigen::Map< const MatrixR<float,4,4> > const_map( m.data() );
@@ -65,11 +66,24 @@ int main( int argc, char** argv )
     TensorMap<float,3> t8(t);
     TensorMap<const float,3> t9 = TensorMap<float,3>(t);
 
+    // Slicing
     //TensorMap<float,2> sub2( Slice<2>(0), t );  // Error
     //t.slice<1>( 3 ); // Runtime error
     TensorMap<float,2> sub3 = t.slice<1>(1);
     TensorMap<const float,2> sub4 = t.slice<1>(1);
     t2.slice<1>(1);
+    TensorMap<const float,2> sub5 = t2.slice<0>(0);
+
+    // operator()
+    auto o1 = t();
+    auto o2 = t()();
+    auto o3 = t()()();
+    TensorMap<float,3> r1 = o3;
+    TensorMap<const float,3> r2( o3 );
+    const TensorMap<const float,3> r3( o2 );
+    o2();
+    r3()()();
+    //auto o4 = t()()()(); // Error
 
     return 0;
 }
