@@ -50,10 +50,10 @@ int main( int argc, char** argv )
     test_schemes();
 
     // Const and construction tests
-    MatrixR<float,4,4> m;
-    TensorMap<float,3> t( m, 4, 2, 2 );
+    MatrixR<float,4,4> m = MatrixR<float,4,4>::Constant(42);
     Eigen::Map< const MatrixR<float,4,4> > const_map( m.data() );
     TensorMap<float,3> t1( m.data(), 4, 2, 2 );
+    TensorMap<float,3> t( m.data(), Eigen::InnerStride<>(m.innerStride()), 4, 2, 2 );
     const TensorMap<const float,3> t2( m.data(), 4, 2, 2 );
     TensorMap<const float,3> t3( const_map.data(), Eigen::InnerStride<>(1), 4, 2, 2 );
 
@@ -113,8 +113,14 @@ int main( int argc, char** argv )
 
     auto machin = t.reshape<4>(2,2,2,2).contract<1>();
     auto truc = t.contractFirst();
-    Vector<float,8> v2 = t.reshape<2>(4,4).contractFirst();
-    t.reshape<2>(2,8).contractLast() = v2;
+    //Vector<float,8> v2 = t.reshape<3>(4,2,2).contractFirst()()(0);
+    //Vector<float,8> v2 = Vector<float, 8>::Ones();
+    Vector<float> v2 = Vector<float>::Ones(8);
+    MatrixR<float> m3(8,2); m3 << v2, v2;
+    //auto bidule = t.reshape<2>(8,2);
+    TensorMap<float,2> bidule( m.data(), 8, 2);
+    Eigen::Map< MatrixR<float,8,2> >( m.data() ) << v2, v2;
+    Eigen::Map< MatrixR<float,8,2> >( bidule.data() ) << v2, v2;
     t.ravel().setZero();
 
     return 0;
