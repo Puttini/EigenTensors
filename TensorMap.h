@@ -196,7 +196,7 @@ public:
     {
         for (size_t i = 0; i < dim - 1; ++i)
         {
-            if (shape_[i] != shape_[i + 1] * stride_[i + 1])
+            if (stride_[i] != shape_[i + 1] * stride_[i + 1])
                 return false;
         }
         return true;
