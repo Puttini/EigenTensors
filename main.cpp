@@ -55,7 +55,7 @@ int main( int argc, char** argv )
     Eigen::Map< const MatrixR<float,4,4> > const_map( m.data() );
     TensorMap<float,3> t1( m.data(), 4, 2, 2 );
     const TensorMap<const float,3> t2( m.data(), 4, 2, 2 );
-    TensorMap<const float,3> t3( const_map.data(), InnerStride(1), 4, 2, 2 );
+    TensorMap<const float,3> t3( const_map.data(), Eigen::InnerStride<>(1), 4, 2, 2 );
 
     //TensorMap<float,3> t4( const_map.data(), 4, 2, 2 ); // Error
     //TensorMap<float,3> t5( m, 4, 2, 3 ); // Runtime Error
@@ -107,6 +107,8 @@ int main( int argc, char** argv )
     t(0)(0,0);
     t(0,0,0);
     t()(0,0);
+
+    t.stride(0);
 
     return 0;
 }
