@@ -260,6 +260,13 @@ struct TensorMap<Scalar,2,0> : public TensorMap_ConstInterface<Scalar,2>,
     TensorMap< Const<Scalar>, 1, 0 >
     operator()( size_t i ) const
     { return TensorMap< Const<Scalar>, 1, 0 >( Slice<0>(i), *this ); };
+
+    Scalar&
+    operator()( size_t i, size_t j )
+    { return this->EigenBase::operator()( i, j ); }
+    Scalar
+    operator()( size_t i, size_t j ) const
+    { return this->EigenBase::operator()( i, j ); }
 };
 
 template< typename Scalar >

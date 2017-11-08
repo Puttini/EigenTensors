@@ -98,6 +98,10 @@ int main( int argc, char** argv )
     t(0)(0) = v;
     t(0)()(0) = 2*t()(0)(0);
     t(0) += MatrixR<float,2,2>::Zero();
+    t(0)(0,0) = 3;
+    t(0)(0) = t(0)(0)();
+
+    // operator()( ... )
 
     return 0;
 }
