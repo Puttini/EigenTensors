@@ -178,6 +178,15 @@ struct TensorMap : public TensorMap_ConstInterface<Scalar,dim>
     TensorMap< Const<Scalar>, dim-1, current_dim >
     operator()( size_t i ) const
     { return TensorMap< Const<Scalar>, dim-1, current_dim >( Slice<current_dim>(i), *this ); };
+
+    template< typename ... OtherIndices >
+    typename std::result_of< TensorMap<Scalar, dim-1, current_dim >(OtherIndices...) >::type
+    operator()( size_t i, OtherIndices ... indices )
+    { return this->operator()(i)(indices...); }
+    template< typename ... OtherIndices >
+    typename std::result_of< TensorMap<Const<Scalar>, dim-1, current_dim >(OtherIndices...) >::type
+    operator()( size_t i, OtherIndices ... indices ) const
+    { return this->operator()(i)(indices...); }
 };
 
 template< typename Scalar >

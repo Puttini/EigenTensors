@@ -102,6 +102,11 @@ int main( int argc, char** argv )
     t(0)(0) = t(0)(0)();
 
     // operator()( ... )
+    t(0,0)();
+    t(0,0)(0);
+    t(0)(0,0);
+    t(0,0,0);
+    t()(0,0);
 
     return 0;
 }
