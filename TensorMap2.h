@@ -147,6 +147,11 @@ public:
      : TensorMapBase(data, DynInnerStride(1), dimensions...)
     {}
 
+    template<typename ... Dimensions>
+    inline TensorMapBase( EigenRef&& mat, Dimensions ... dimensions )
+     : TensorMapBase( mat.data(), DynInnerStride(mat.innerStride()), dimensions... )
+    {}
+
     // --- Copy and move constructors ---
 private:
     template< typename OtherType >
